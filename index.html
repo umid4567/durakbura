@@ -3,88 +3,76 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bura Kozyol: Umut Edition</title>
+    <title>Bura Kozyol 1-Player</title>
     <style>
-        body { margin: 0; padding: 0; background: #0e4d2a; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
-        #game-container { display: flex; flex-direction: column; height: 100vh; justify-content: space-between; align-items: center; padding: 20px; }
-        
-        /* Bot maydoni */
-        .bot-area { display: flex; gap: 5px; }
-        .card-back { width: 50px; height: 75px; background: #2c3e50; border: 2px solid white; border-radius: 5px; }
-
-        /* O'yin stoli */
-        .table { width: 280px; height: 180px; border: 3px dashed rgba(255,255,255,0.2); border-radius: 20px; display: flex; justify-content: center; align-items: center; position: relative; }
-        .trump-suit { position: absolute; top: 10px; right: 10px; font-size: 24px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 50%; }
-
-        /* Sizning kartalaringiz */
-        .my-hand { display: flex; gap: 10px; margin-bottom: 30px; }
-        .card { 
-            width: 65px; height: 95px; background: white; color: black; border-radius: 8px; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 18px; cursor: pointer; transition: transform 0.2s;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        }
-        .card:active { transform: translateY(-20px); }
+        body { margin: 0; padding: 0; background: #0e4d2a; color: white; font-family: sans-serif; text-align: center; }
+        .score-board { display: flex; justify-content: space-around; background: rgba(0,0,0,0.4); padding: 15px; font-weight: bold; }
+        .table { width: 90%; height: 200px; border: 3px solid #0b3d21; margin: 20px auto; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .card { width: 60px; height: 90px; background: white; color: black; border-radius: 8px; font-size: 18px; font-weight: bold; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
         .red { color: #e74c3c; }
-
-        .score-board { font-size: 14px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 10px; width: 100%; display: flex; justify-content: space-around; }
+        .my-hand { display: flex; justify-content: center; gap: 10px; margin-top: 50px; }
+        #status { margin-top: 10px; color: #f1c40f; }
     </style>
 </head>
 <body>
 
-<div id="game-container">
-    <div class="score-board">
-        <span>Bot: <b id="bot-score">0</b></span>
-        <span>Kozir: <span id="trump-display">♦️</span></span>
-        <span>Siz: <b id="user-score">0</b></span>
-    </div>
-
-    <div class="bot-area">
-        <div class="card-back"></div><div class="card-back"></div><div class="card-back"></div><div class="card-back"></div>
-    </div>
-
-    <div class="table" id="battle-ground">
-        <span style="opacity: 0.3;">Karta tashlang...</span>
-    </div>
-
-    <div class="my-hand" id="user-hand">
-        </div>
+<div class="score-board">
+    <span>Bot: <span id="bot-score">0</span></span>
+    <span>Siz: <span id="user-score">0</span></span>
 </div>
 
+<div class="table" id="table">
+    </div>
+
+<p id="status">Karta tanlang!</p>
+
+<div class="my-hand" id="user-hand"></div>
+
 <script>
-    // Oddiy o'yin mantiqi (Boshlang'ich)
     const suits = ['♥️', '♦️', '♣️', '♠️'];
-    const values = ['6', '7', '8', '9', '10', 'V', 'D', 'K', 'T'];
-    
-    function createCard(val, suit) {
+    const values = ['6', '7', '8', '9', 'V', 'D', 'K', '10', 'T'];
+    const points = {'6':0, '7':0, '8':0, '9':0, 'V':2, 'D':3, 'K':4, '10':10, 'T':11};
+
+    function createCardElement(val, suit, isUser) {
         const div = document.createElement('div');
         div.className = 'card' + (suit === '♥️' || suit === '♦️' ? ' red' : '');
-        div.innerHTML = `<span>${val}</span><span>${suit}</span>`;
-        div.onclick = () => playCard(val, suit, div);
+        div.innerHTML = `<div>${val}</div><div>${suit}</div>`;
+        if(isUser) div.onclick = () => playCard(val, suit, div);
         return div;
     }
 
     function playCard(val, suit, element) {
-        const table = document.getElementById('battle-ground');
-        table.innerHTML = ""; // Stolni tozalash
-        table.appendChild(element); // Kartani stolga qo'yish
-        element.onclick = null; // Qayta bosilmaydigan qilish
+        const table = document.getElementById('table');
+        table.innerHTML = ""; 
+        table.appendChild(element); // Sizning kartangiz
+        element.onclick = null;
         
-        // Botning javobi (Simulyatsiya)
+        document.getElementById('status').innerText = "Bot yurmoqda...";
+        
+        // Bot javobi (Tasodifiy bitta karta)
         setTimeout(() => {
-            alert("Bot o'ylayapti...");
-        }, 500);
+            const bVal = values[Math.floor(Math.random()*values.length)];
+            const bSuit = suits[Math.floor(Math.random()*suits.length)];
+            const botCard = createCardElement(bVal, bSuit, false);
+            table.appendChild(botCard);
+            
+            document.getElementById('status').innerText = "Navbat sizda!";
+            updateScores(points[val], points[bVal]);
+        }, 1000);
     }
 
-    // O'yinni boshlash: 4 ta tasodifiy karta berish
+    let uScore = 0, bScore = 0;
+    function updateScores(u, b) {
+        uScore += u; bScore += b;
+        document.getElementById('user-score').innerText = uScore;
+        document.getElementById('bot-score').innerText = bScore;
+    }
+
+    // Boshlang'ich 4 ta karta
     const hand = document.getElementById('user-hand');
     for(let i=0; i<4; i++) {
-        const randomSuit = suits[Math.floor(Math.random()*suits.length)];
-        const randomVal = values[Math.floor(Math.random()*values.length)];
-        hand.appendChild(createCard(randomVal, randomSuit));
+        hand.appendChild(createCardElement(values[Math.floor(Math.random()*values.length)], suits[Math.floor(Math.random()*suits.length)], true));
     }
 </script>
-
 </body>
 </html>
-
