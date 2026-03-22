@@ -2,16 +2,26 @@
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bura Kozyol 1-Player</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Umut Bura: Kozir Mode</title>
     <style>
-        body { margin: 0; padding: 0; background: #0e4d2a; color: white; font-family: sans-serif; text-align: center; }
-        .score-board { display: flex; justify-content: space-around; background: rgba(0,0,0,0.4); padding: 15px; font-weight: bold; }
-        .table { width: 90%; height: 200px; border: 3px solid #0b3d21; margin: 20px auto; border-radius: 50%; position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .card { width: 60px; height: 90px; background: white; color: black; border-radius: 8px; font-size: 18px; font-weight: bold; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
+        body { margin: 0; background: #0e4d2a; color: white; font-family: sans-serif; text-align: center; }
+        .score-board { display: flex; justify-content: space-around; background: rgba(0,0,0,0.7); padding: 10px; font-weight: bold; border-bottom: 2px solid #f1c40f; }
+        .trump-area { font-size: 24px; margin: 10px; color: #f1c40f; }
+        .table { width: 90%; height: 200px; border: 2px solid #1a5e3a; margin: 10px auto; border-radius: 15px; display: flex; align-items: center; justify-content: center; gap: 5px; background: rgba(0,0,0,0.1); }
+        .card { 
+            width: 55px; height: 85px; background: white; color: black; border-radius: 6px; 
+            font-size: 16px; font-weight: bold; display: flex; flex-direction: column; 
+            justify-content: center; cursor: pointer; border: 2px solid transparent; position: relative;
+        }
+        .card.selected { border: 3px solid #f1c40f; transform: translateY(-10px); }
         .red { color: #e74c3c; }
-        .my-hand { display: flex; justify-content: center; gap: 10px; margin-top: 50px; }
-        #status { margin-top: 10px; color: #f1c40f; }
+        .my-hand { display: flex; justify-content: center; gap: 8px; margin-top: 20px; }
+        #action-btn { 
+            margin-top: 20px; padding: 12px 30px; font-size: 18px; font-weight: bold;
+            background: #f1c40f; border: none; border-radius: 25px; color: #000;
+        }
+        #status { color: #f1c40f; margin-top: 10px; height: 20px; }
     </style>
 </head>
 <body>
@@ -21,58 +31,103 @@
     <span>Siz: <span id="user-score">0</span></span>
 </div>
 
-<div class="table" id="table">
-    </div>
+<div class="trump-area">Kozir (Suzish): <span id="trump-suit">?</span></div>
 
-<p id="status">Karta tanlang!</p>
+<div class="table" id="battle-ground"></div>
+
+<div id="status">Karta tanlang</div>
+<button id="action-btn" onclick="executeTurn()">Tashlash (0)</button>
 
 <div class="my-hand" id="user-hand"></div>
 
 <script>
     const suits = ['♥️', '♦️', '♣️', '♠️'];
     const values = ['6', '7', '8', '9', 'V', 'D', 'K', '10', 'T'];
-    const points = {'6':0, '7':0, '8':0, '9':0, 'V':2, 'D':3, 'K':4, '10':10, 'T':11};
+    const power = {'6':1, '7':2, '8':3, '9':4, 'V':5, 'D':6, 'K':7, '10':8, 'T':9};
+    
+    let trump = suits[Math.floor(Math.random() * suits.length)];
+    document.getElementById('trump-suit').innerText = trump;
 
-    function createCardElement(val, suit, isUser) {
+    let selectedCards = [];
+    let userScore = 0, botScore = 0;
+
+    function createCardUI(val, suit, isUser) {
         const div = document.createElement('div');
         div.className = 'card' + (suit === '♥️' || suit === '♦️' ? ' red' : '');
         div.innerHTML = `<div>${val}</div><div>${suit}</div>`;
-        if(isUser) div.onclick = () => playCard(val, suit, div);
+        if(isUser) div.onclick = () => toggleSelect(val, suit, div);
         return div;
     }
 
-    function playCard(val, suit, element) {
-        const table = document.getElementById('table');
-        table.innerHTML = ""; 
-        table.appendChild(element); // Sizning kartangiz
-        element.onclick = null;
+    function toggleSelect(val, suit, el) {
+        if (selectedCards.length > 0 && selectedCards[0].suit !== suit) {
+            alert("Faqat bir xil rangdagi kartalarni tanlang!");
+            return;
+        }
+        const idx = selectedCards.findIndex(c => c.val === val && c.suit === suit);
+        if (idx > -1) {
+            selectedCards.splice(idx, 1);
+            el.classList.remove('selected');
+        } else {
+            selectedCards.push({val, suit, el});
+            el.classList.add('selected');
+        }
+        document.getElementById('action-btn').innerText = `Tashlash (${selectedCards.length})`;
+    }
+
+    function executeTurn() {
+        if (selectedCards.length === 0) return;
         
-        document.getElementById('status').innerText = "Bot yurmoqda...";
+        const table = document.getElementById('battle-ground');
+        table.innerHTML = "";
         
-        // Bot javobi (Tasodifiy bitta karta)
+        // Sizning yurishingiz
+        let userPower = 0;
+        selectedCards.forEach(c => {
+            table.appendChild(createCardUI(c.val, c.suit, false));
+            userPower += power[c.val] + (c.suit === trump ? 10 : 0);
+            c.el.remove();
+        });
+
+        document.getElementById('status').innerText = "Bot suzyapti...";
+        let count = selectedCards.length;
+        selectedCards = [];
+
         setTimeout(() => {
-            const bVal = values[Math.floor(Math.random()*values.length)];
-            const bSuit = suits[Math.floor(Math.random()*suits.length)];
-            const botCard = createCardElement(bVal, bSuit, false);
-            table.appendChild(botCard);
+            let botPower = 0;
+            for(let i=0; i<count; i++) {
+                let bVal = values[Math.floor(Math.random()*values.length)];
+                let bSuit = suits[Math.floor(Math.random()*suits.length)];
+                table.appendChild(createCardUI(bVal, bSuit, false));
+                botPower += power[bVal] + (bSuit === trump ? 10 : 0);
+            }
+
+            // Kim yutganini aniqlash
+            if (userPower >= botPower) {
+                userScore += 1;
+                document.getElementById('status').innerText = "Siz yutdingiz!";
+            } else {
+                botScore += 1;
+                document.getElementById('status').innerText = "Bot suzdi!";
+            }
             
-            document.getElementById('status').innerText = "Navbat sizda!";
-            updateScores(points[val], points[bVal]);
+            document.getElementById('user-score').innerText = userScore;
+            document.getElementById('bot-score').innerText = botScore;
+            document.getElementById('action-btn').innerText = `Tashlash (0)`;
+            
+            // Yangi kartalar berish (har doim qo'lda 4 ta bo'lishi kerak)
+            replenishHand();
         }, 1000);
     }
 
-    let uScore = 0, bScore = 0;
-    function updateScores(u, b) {
-        uScore += u; bScore += b;
-        document.getElementById('user-score').innerText = uScore;
-        document.getElementById('bot-score').innerText = bScore;
+    function replenishHand() {
+        const hand = document.getElementById('user-hand');
+        while(hand.children.length < 4) {
+            hand.appendChild(createCardUI(values[Math.floor(Math.random()*9)], suits[Math.floor(Math.random()*4)], true));
+        }
     }
 
-    // Boshlang'ich 4 ta karta
-    const hand = document.getElementById('user-hand');
-    for(let i=0; i<4; i++) {
-        hand.appendChild(createCardElement(values[Math.floor(Math.random()*values.length)], suits[Math.floor(Math.random()*suits.length)], true));
-    }
+    replenishHand();
 </script>
 </body>
 </html>
