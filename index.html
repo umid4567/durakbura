@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Burkozyol: Umut Edition</title>
+    <title>Burkozyol: Umut Realiti</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background: #000; overflow: hidden; }
@@ -15,62 +15,136 @@
     <script>
         const config = {
             type: Phaser.AUTO,
-            width: window.innerWidth,
-            height: window.innerHeight,
+            width: window.innerWidth, height: window.innerHeight,
             parent: 'game-container',
-            physics: { default: 'arcade' },
             scene: { preload: preload, create: create }
         };
 
         const game = new Phaser.Game(config);
+        let deck = [], playerHand = [], botHand = [];
+        let selectedCard = null, trumpCard = null, deckSprite = null;
+        let btnThrow, statusText, deckCountText;
 
         function preload() {
-            // Siz yuklagan rasmlarni ulash
-            this.load.spritesheet('cards', 'assets/cards_all.png', { frameWidth: 103.4, frameHeight: 154 });
+            this.load.spritesheet('cards', 'assets/cards_all.png', { frameWidth: 100, frameHeight: 145 });
             this.load.image('table', 'assets/table_bg.png');
             this.load.image('avatar', 'assets/user_avatar.png');
         }
 
         function create() {
-            // Stolni ekranga moslab chizish
-            let bg = this.add.image(config.width/2, config.height/2, 'table');
-            bg.setDisplaySize(config.width, config.height);
+            this.add.image(config.width/2, config.height/2, 'table').setDisplaySize(config.width, config.height);
+            this.add.image(60, 60, 'avatar').setDisplaySize(60, 60);
+            
+            statusText = this.add.text(config.width/2, config.height/2 - 80, "O'yin boshlanmoqda...", { fontSize: '20px', fill: '#fff' }).setOrigin(0.5);
+            deckCountText = this.add.text(40, config.height/2 + 30, "", { fontSize: '18px', fill: '#f1c40f' });
 
-            // Avatarni tepaga qo'yish
-            this.add.image(60, 60, 'avatar').setScale(0.2);
+            btnThrow = this.add.text(config.width/2, config.height - 230, "Tashlash", { 
+                fontSize: '24px', fill: '#000', backgroundColor: '#f1c40f', padding: {x:20, y:10} 
+            }).setOrigin(0.5).setInteractive().setVisible(false);
+            
+            btnThrow.on('pointerdown', () => throwCard.call(this));
 
-            // Kozirni aniqlash (tasodifiy)
-            const suits = ['♠', '♥️', '♣', '♦️'];
-            const trump = suits[Math.floor(Math.random() * suits.length)];
-            this.add.text(config.width - 120, 30, `Kozir: ${trump}`, { fontSize: '24px', fill: '#f1c40f', fontWeight: 'bold' });
+            startGame.call(this);
+        }
 
-            // Foydalanuvchiga 4 ta karta tarqatish animatsiyasi
+        function startGame() {
+            // 1. 36 talik dasta yaratish (6 dan Tuzgacha)
+            deck = [];
+            const suits = [0, 1, 2, 3]; // ♣, ♠, ♥, ♦
+            const vals = [0, 5, 6, 7, 8, 9, 10, 11, 12]; // Sizning rasmda: 6, 7, 8, 9, 10, J, Q, K, A kadrlari
+            
+            suits.forEach(s => {
+                vals.forEach(v => deck.push(s * 13 + v));
+            });
+            Phaser.Utils.Array.Shuffle(deck);
+
+            // 2. Kozirni (Zot) aniqlash - dastaning eng tagidagi karta
+            let trumpFrame = deck[0]; 
+            trumpCard = this.add.sprite(80, config.height/2, 'cards', trumpFrame);
+            trumpCard.setAngle(90).setScale(0.7); // Yotiq holda
+
+            // 3. Dastani kozirning ustiga qo'yish (yopiq holda)
+            deckSprite = this.add.sprite(60, config.height/2, 'cards', 54); // 54 - yopiq kadr
+            deckSprite.setScale(0.7);
+
+            // 4. Kartalarni tarqatish (4 tadan)
             for(let i=0; i<4; i++) {
-                // Spritesheetdan tasodifiy karta (kadr) tanlash
-                let frameIdx = Math.floor(Math.random() * 52); 
-                let card = this.add.sprite(config.width / 2, -100, 'cards', frameIdx);
-                card.setScale(0.8);
-                
-                // Kartani pastga, qo'lingizga uchib kelish animatsiyasi
-                this.tweens.add({
-                    targets: card,
-                    y: config.height - 100,
-                    x: (config.width / 2 - 120) + (i * 80),
-                    duration: 800,
-                    delay: i * 150,
-                    ease: 'Back.easeOut'
-                });
-
-                card.setInteractive();
-                card.on('pointerdown', function() {
-                    this.y -= 30; // Tanlanganini bildirish uchun tepaga ko'tariladi
-                    this.setTint(0xf1c40f);
-                });
+                addCardToHand(this, true, i);
+                addCardToHand(this, false, i);
             }
+            updateUI();
+        }
 
-            this.add.text(config.width/2, config.height/2 - 50, "O'yin Tayyor!", { fontSize: '32px', fill: '#fff' }).setOrigin(0.5);
+        function addCardToHand(scene, isPlayer, index) {
+            if (deck.length === 0) return;
+            let frame = deck.pop();
+            
+            if (isPlayer) {
+                let card = scene.add.sprite(config.width/2, config.height + 100, 'cards', frame);
+                card.setScale(1.1).setInteractive().setData('frame', frame);
+                scene.tweens.add({
+                    targets: card,
+                    x: (config.width/2 - 120) + (playerHand.length * 80),
+                    y: config.height - 100, duration: 500
+                });
+                card.on('pointerdown', function() {
+                    if(selectedCard) { selectedCard.y += 30; selectedCard.clearTint(); }
+                    selectedCard = this;
+                    this.y -= 30; this.setTint(0xf1c40f);
+                    btnThrow.setVisible(true);
+                });
+                playerHand.push(card);
+            } else {
+                let card = scene.add.sprite((config.width/2 - 120) + (botHand.length * 80), 80, 'cards', 54);
+                card.setScale(0.8);
+                botHand.push({sprite: card, frame: frame});
+            }
+        }
+
+        function throwCard() {
+            if(!selectedCard) return;
+            btnThrow.setVisible(false);
+            let card = selectedCard;
+            selectedCard = null;
+
+            this.tweens.add({
+                targets: card, x: config.width/2 - 40, y: config.height/2, duration: 400,
+                onComplete: () => botMove.call(this, card)
+            });
+        }
+
+        function botMove(playerCard) {
+            statusText.setText("Bot yurmoqda...");
+            this.time.delayedCall(800, () => {
+                let botObj = botHand.pop();
+                botObj.sprite.setFrame(botObj.frame);
+                this.tweens.add({
+                    targets: botObj.sprite, x: config.width/2 + 40, y: config.height/2, duration: 400,
+                    onComplete: () => {
+                        this.time.delayedCall(1000, () => {
+                            playerCard.destroy();
+                            botObj.sprite.destroy();
+                            playerHand = playerHand.filter(c => c !== playerCard);
+                            
+                            // Yurishdan keyin qo'lni to'ldirish
+                            while(playerHand.length < 4 && deck.length > 0) addCardToHand(this, true);
+                            while(botHand.length < 4 && deck.length > 0) addCardToHand(this, false);
+                            
+                            updateUI();
+                            statusText.setText("Sizning navbatingiz");
+                        });
+                    }
+                });
+            });
+        }
+
+        function updateUI() {
+            deckCountText.setText("Qoldi: " + deck.length);
+            if(deck.length === 0) {
+                deckSprite.setVisible(false);
+                statusText.setText("Dasta tugadi! Oxirgi kartalar.");
+            }
         }
     </script>
 </body>
 </html>
-
